@@ -28,6 +28,7 @@ export class WizLightbulb {
   private cachedSaturation = 0;
   private cachedBrightness = 100;
   private cachedMired = kelvinToMired(2700);
+  private cachedOn = false;
   private colorCommitTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -57,8 +58,11 @@ export class WizLightbulb {
 
     this.lightbulbService.getCharacteristic(this.platform.Characteristic.On)
       .on('get', callback => this.readSetting(
-        ls => callback(0, Boolean(ls?.state)),
-        hapStatus => callback(hapStatus, false),
+        ls => {
+          this.cachedOn = Boolean(ls?.state);
+          callback(0, this.cachedOn);
+        },
+        hapStatus => callback(hapStatus, this.cachedOn),
       ))
       .onSet(this.setOn.bind(this));
 
@@ -154,8 +158,21 @@ export class WizLightbulb {
   }
 
   private async setOn(value: CharacteristicValue): Promise<void> {
-    setLightSetting(this.platform, [this.device], { state: Boolean(value) });
-    this.platform.log.debug(`[${this.device.name}] Set On -> ${value}`);
+    const turningOn = Boolean(value);
+    this.cachedOn = turningOn;
+    if (turningOn) {
+      // Push the cached brightness + CCT alongside the on command so the bulb
+      // comes up where HomeKit expects, not at its hardware default (100%).
+      const kelvin = Math.max(WIZ_KELVIN_MIN, Math.min(WIZ_KELVIN_MAX, miredToKelvin(this.cachedMired)));
+      setLightSetting(this.platform, [this.device], {
+        state: true,
+        dimming: this.cachedBrightness,
+        temp: kelvin,
+      });
+    } else {
+      setLightSetting(this.platform, [this.device], { state: false });
+    }
+    this.platform.log.debug(`[${this.device.name}] Set On -> ${turningOn}`);
   }
 
   private async setBrightness(value: CharacteristicValue): Promise<void> {
@@ -187,6 +204,16 @@ export class WizLightbulb {
       clearTimeout(this.colorCommitTimer);
       this.colorCommitTimer = null;
     }
+
+    // AdaptiveLighting fires CT updates on a timer even when the bulb is off.
+    // Sending temp/dimming to an off bulb wakes it up via the Wiz protocol's
+    // implicit-on behavior, so cache silently and only push when the bulb is
+    // already on. The next user-driven On will pick up cachedMired.
+    if (!this.cachedOn) {
+      this.platform.log.debug(`[${this.device.name}] Cache-only CT (off) -> ${mired} mired (${kelvin} K)`);
+      return;
+    }
+
     setLightSetting(this.platform, [this.device], { temp: kelvin, dimming: this.cachedBrightness });
     this.platform.log.debug(`[${this.device.name}] Set ColorTemperature -> ${mired} mired (${kelvin} K)`);
   }
