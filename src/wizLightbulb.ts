@@ -7,12 +7,11 @@ import { Device, LightSetting } from './types';
 
 const COLOR_COMMIT_DELAY_MS = 50;
 
-// Wiz hardware supports 2200K–6500K. HomeKit mired = 1,000,000 / kelvin, so this
-// inverts to the 154–454 mired range we advertise to HomeKit.
+// Wiz hardware supports 2200K–6500K; we clamp Kelvin into this band before
+// dispatching to the bulb, but advertise HomeKit's default ColorTemperature
+// range so Adaptive Lighting can emit its native curve without warnings.
 const WIZ_KELVIN_MIN = 2200;
 const WIZ_KELVIN_MAX = 6500;
-const MIRED_MIN = Math.round(1_000_000 / WIZ_KELVIN_MAX);
-const MIRED_MAX = Math.round(1_000_000 / WIZ_KELVIN_MIN);
 
 /**
  * One HomeKit Lightbulb accessory backed by a single Wiz bulb.
@@ -88,8 +87,11 @@ export class WizLightbulb {
       ))
       .onSet(this.setSaturation.bind(this));
 
+    // Use HomeKit's default ColorTemperature range (140–500 mired) so Adaptive
+    // Lighting can emit its full curve without warnings. Values outside what
+    // Wiz hardware supports (2200K–6500K) get clamped in setColorTemperature
+    // before reaching the bulb.
     this.lightbulbService.getCharacteristic(this.platform.Characteristic.ColorTemperature)
-      .setProps({ minValue: MIRED_MIN, maxValue: MIRED_MAX })
       .on('get', callback => this.readSetting(
         ls => callback(0, this.miredFromSetting(ls)),
         hapStatus => callback(hapStatus, this.cachedMired),
@@ -174,7 +176,7 @@ export class WizLightbulb {
   }
 
   private async setColorTemperature(value: CharacteristicValue): Promise<void> {
-    const mired = Math.max(MIRED_MIN, Math.min(MIRED_MAX, Number(value)));
+    const mired = Number(value);
     this.cachedMired = mired;
     const kelvin = Math.max(WIZ_KELVIN_MIN, Math.min(WIZ_KELVIN_MAX, miredToKelvin(mired)));
 
