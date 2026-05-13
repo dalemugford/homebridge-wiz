@@ -1,2 +1,2 @@
 export const PLATFORM_NAME = 'Wiz';
-export const PLUGIN_NAME = 'homebridge-wiz';
+export const PLUGIN_NAME = 'homebridge-wiz-lights';

@@ -1,6 +1,8 @@
-# homebridge-wiz
+# homebridge-wiz-lights
 
-A Homebridge plugin for Wiz Wi-Fi bulbs that exposes each bulb as its own native HomeKit Lightbulb, controlled directly over local UDP — no cloud.
+A Homebridge plugin for Wiz Wi-Fi **bulbs** that exposes each bulb as its own native HomeKit Lightbulb, controlled directly over local UDP — no cloud.
+
+This plugin focuses on bulbs only. The broader Wiz ecosystem (plugs, sensors, fans) is out of scope.
 
 ## What you get
 
@@ -23,21 +25,21 @@ Group bulbs in the Home app, build any scenes you want natively in HomeKit. No W
 
 ## Installation
 
-This is a fork of [`homebridge-udp-multiswitch-multitarget`](https://github.com/JasperSnowolf/homebridge-udp-multiswitch-multitarget) and isn't published to npm under a new name — install it from source:
+This is a fork of [`homebridge-udp-multiswitch-multitarget`](https://github.com/JasperSnowolf/homebridge-udp-multiswitch-multitarget) and isn't published to npm — install it from source:
 
 ```sh
-git clone https://github.com/dalemugford/homebridge-wiz.git
-cd homebridge-wiz
+git clone https://github.com/dalemugford/homebridge-wiz-lights.git
+cd homebridge-wiz-lights
 npm install
 npm run build
 sudo npm link
 # point your Homebridge install at the linked module
 cd /var/lib/homebridge   # or your Homebridge storage path
-sudo -u homebridge npm link homebridge-wiz
+sudo -u homebridge npm link homebridge-wiz-lights
 sudo systemctl restart homebridge
 ```
 
-The npm package name on disk stays `homebridge-wiz` for backwards compatibility with anyone migrating from the upstream plugin. The platform alias in your config is the friendlier `Wiz`.
+The npm package name is `homebridge-wiz-lights`. The platform alias used in your Homebridge config is the friendlier `Wiz`.
 
 ## Configuration
 
@@ -96,8 +98,9 @@ Add a single platform block to your Homebridge `config.json`. The Homebridge Con
 
 The upstream plugin exposed each accessory group as a single HomeKit *Television* and Wiz scene presets as TV inputs. v3 of this fork drops that entirely in favour of per-bulb Lightbulbs. Existing cached TV-style accessories get unregistered on first launch; build any scene presets you were using natively in HomeKit.
 
-### From this fork's v1.x or v2.x
+### From this fork's earlier versions
 
+- **v3.1 → v3.2**: the npm package was renamed from `homebridge-wiz` to `homebridge-wiz-lights`. The Homebridge platform alias (`Wiz`) and the config schema are unchanged. To preserve cached HomeKit accessory identity, edit `cachedAccessories` in your Homebridge storage path before restart: rewrite `"plugin": "homebridge-wiz"` to `"plugin": "homebridge-wiz-lights"` for every entry tagged to this plugin. Update the `npm link` command and the `dependencies` entry in your Homebridge `package.json` to match.
 - **v2 → v3** is a breaking change: the platform alias renamed from `WizSceneController` to `Wiz`, and the `mode` / `scene-controller` config options are gone. To preserve your existing HomeKit accessories' identity (and any room/automation references), edit `cachedAccessories` in your Homebridge storage path before restart: rewrite `"platform": "WizSceneController"` to `"platform": "Wiz"` for every entry tagged to this plugin. Then change `"platform"` in `config.json` to `"Wiz"`.
 - v1 of this fork was the original JasperSnowolf code — see above.
 
