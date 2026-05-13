@@ -29,6 +29,8 @@ export class WizLightbulb {
   private cachedBrightness = 100;
   private cachedMired = kelvinToMired(2700);
   private cachedOn = false;
+  private cachedMode: 'cct' | 'rgb' = 'cct';
+  private cachedRgb: { r: number; g: number; b: number } | null = null;
   private colorCommitTimer: NodeJS.Timeout | null = null;
 
   constructor(
@@ -60,6 +62,7 @@ export class WizLightbulb {
       .on('get', callback => this.readSetting(
         ls => {
           this.cachedOn = Boolean(ls?.state);
+          this.absorbModeFromSetting(ls);
           callback(0, this.cachedOn);
         },
         hapStatus => callback(hapStatus, this.cachedOn),
@@ -104,6 +107,15 @@ export class WizLightbulb {
 
     const adaptiveLightingController = new this.platform.api.hap.AdaptiveLightingController(this.lightbulbService);
     this.accessory.configureController(adaptiveLightingController);
+  }
+
+  private absorbModeFromSetting(ls: LightSetting): void {
+    if (ls?.r !== undefined && ls?.g !== undefined && ls?.b !== undefined) {
+      this.cachedMode = 'rgb';
+      this.cachedRgb = { r: ls.r, g: ls.g, b: ls.b };
+    } else if (ls?.temp !== undefined) {
+      this.cachedMode = 'cct';
+    }
   }
 
   private hueFromSetting(ls: LightSetting): number {
@@ -161,18 +173,20 @@ export class WizLightbulb {
     const turningOn = Boolean(value);
     this.cachedOn = turningOn;
     if (turningOn) {
-      // Push the cached brightness + CCT alongside the on command so the bulb
-      // comes up where HomeKit expects, not at its hardware default (100%).
-      const kelvin = Math.max(WIZ_KELVIN_MIN, Math.min(WIZ_KELVIN_MAX, miredToKelvin(this.cachedMired)));
-      setLightSetting(this.platform, [this.device], {
-        state: true,
-        dimming: this.cachedBrightness,
-        temp: kelvin,
-      });
+      // Push the cached state (mode-appropriate colour + brightness) alongside
+      // the on command so the bulb comes up where HomeKit expects, not at its
+      // hardware default (100%) and not always in CCT mode.
+      const setting: LightSetting = { state: true, dimming: this.cachedBrightness };
+      if (this.cachedMode === 'rgb' && this.cachedRgb) {
+        Object.assign(setting, this.cachedRgb);
+      } else {
+        setting.temp = Math.max(WIZ_KELVIN_MIN, Math.min(WIZ_KELVIN_MAX, miredToKelvin(this.cachedMired)));
+      }
+      setLightSetting(this.platform, [this.device], setting);
     } else {
       setLightSetting(this.platform, [this.device], { state: false });
     }
-    this.platform.log.debug(`[${this.device.name}] Set On -> ${turningOn}`);
+    this.platform.log.debug(`[${this.device.name}] Set On -> ${turningOn} (mode=${this.cachedMode})`);
   }
 
   private async setBrightness(value: CharacteristicValue): Promise<void> {
@@ -195,10 +209,12 @@ export class WizLightbulb {
   private async setColorTemperature(value: CharacteristicValue): Promise<void> {
     const mired = Number(value);
     this.cachedMired = mired;
+    this.cachedMode = 'cct';
     const kelvin = Math.max(WIZ_KELVIN_MIN, Math.min(WIZ_KELVIN_MAX, miredToKelvin(mired)));
 
     // CCT mode supersedes color — clear cached saturation so subsequent HS reads return 0.
     this.cachedSaturation = 0;
+    this.cachedRgb = null;
 
     if (this.colorCommitTimer) {
       clearTimeout(this.colorCommitTimer);
@@ -232,6 +248,25 @@ export class WizLightbulb {
     const h = Math.max(0, Math.min(360, this.cachedHue)) / 360;
     const s = Math.max(0, Math.min(100, this.cachedSaturation)) / 100;
     const colorPayload = hsvToColor(h, s, this.platform);
+
+    // hsvToColor returns {temp} for near-white hues and {r,g,b} otherwise.
+    // Track which branch we landed in so setOn replays the right payload.
+    if ('temp' in colorPayload && colorPayload.temp !== undefined) {
+      this.cachedMode = 'cct';
+      this.cachedMired = kelvinToMired(colorPayload.temp);
+      this.cachedRgb = null;
+    } else if ('r' in colorPayload && 'g' in colorPayload && 'b' in colorPayload) {
+      this.cachedMode = 'rgb';
+      this.cachedRgb = { r: colorPayload.r as number, g: colorPayload.g as number, b: colorPayload.b as number };
+    }
+
+    if (!this.cachedOn) {
+      this.platform.log.debug(
+        `[${this.device.name}] Cache-only color (off) -> mode=${this.cachedMode} payload=${JSON.stringify(colorPayload)}`,
+      );
+      return;
+    }
+
     const setting: LightSetting = { ...colorPayload, dimming: this.cachedBrightness };
     setLightSetting(this.platform, [this.device], setting);
     this.platform.log.debug(
