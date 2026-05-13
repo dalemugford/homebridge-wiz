@@ -125,6 +125,7 @@ Source layout:
 - Originally [`homebridge-udp-multiswitch`](https://www.npmjs.com/package/homebridge-udp-multiswitch).
 - Forked and reshaped into a scene controller by [JasperSnowolf](https://github.com/JasperSnowolf/homebridge-udp-multiswitch-multitarget).
 - Reshaped into a per-bulb Lightbulb plugin in this fork.
+- v2 and v3 of this fork pair-programmed with [Claude](https://claude.com) (Anthropic) via Claude Code.
 
 ## License
 
