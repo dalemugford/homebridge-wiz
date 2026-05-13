@@ -1,6 +1,6 @@
 # homebridge-wiz-lights
 
-A Homebridge plugin for Wiz Wi-Fi **bulbs** that exposes each bulb as its own native HomeKit Lightbulb, controlled directly over local UDP — no cloud.
+A Homebridge plugin for Wiz Wi-Fi **bulbs & potlights** that exposes each bulb as its own native HomeKit Lightbulb, controlled directly over local UDP — no cloud.
 
 This plugin focuses on bulbs only. The broader Wiz ecosystem (plugs, sensors, fans) is out of scope.
 
