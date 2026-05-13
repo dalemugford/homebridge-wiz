@@ -2,9 +2,16 @@
   "displayName": "Wiz Lights",
   "name": "homebridge-wiz",
   "version": "3.1.0",
-  "author": "dalemugford",
+  "author": {
+    "name": "Dale Mugford",
+    "email": "dalemugford@me.com",
+    "url": "https://github.com/dalemugford"
+  },
   "contributors": [
-    "jaspersnowolf"
+    {
+      "name": "Jasper Snowolf",
+      "url": "https://github.com/JasperSnowolf"
+    }
   ],
   "description": "Homebridge plugin for Wiz bulbs over UDP. Exposes each bulb as a native HomeKit Lightbulb with Hue, Saturation, Brightness, ColorTemperature, and Adaptive Lighting.",
   "license": "MIT",
