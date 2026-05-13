@@ -1,31 +1,91 @@
-# Homebridge Wiz Scene Controller
-This plugin allows configurable scene controllers to be created for controlling Wiz lights.
+# homebridge-wiz
 
-_________________________________________
-#### Creating and maintaining Homebridge plugins consume a lot of time and effort, if you would like to share your appreciation, feel free to "Star" or donate. 
+Homebridge plugin for Wiz Wi-Fi bulbs over UDP.
 
-<a target="blank" href="https://www.paypal.me/conde171"><img src="https://img.shields.io/badge/Donate-PayPal-blue.svg"/></a>
+In v2 each configured bulb is exposed as its own **HomeKit Lightbulb** with full Hue, Saturation, Brightness, ColorTemperature, and **Adaptive Lighting** support. Group your bulbs in the Home app, build scenes natively in HomeKit, and let Adaptive Lighting handle warm-to-cool drift through the day.
 
-_________________________________________
+Forked from [JasperSnowolf/homebridge-udp-multiswitch-multitarget](https://github.com/JasperSnowolf/homebridge-udp-multiswitch-multitarget).
 
+## Modes
 
-## Configuration Params
+Each accessory group has a `mode`:
 
-|             Parameter                   |                       Description                       | Required |
-| --------------------------------------- | ------------------------------------------------------- |:--------:|
-| `scenes`                                | What Scenes to expose for each Controller               |     ✓    |
-| `accessoryGroups`                       | A Controller will be created for each Accessory Group   |     ✓    |
-| `accessoryGroups.groupName`             | This will be the name of the Controller                 |     ✓    |
-| `accessoryGroups.accessories`           | These are the Accessories to control with the Controller|     ✓    |
-| `accessoryGroups.accessories.ipAddress` | The IP Address of the Accessory                         |     ✓    |
-| `accessoryGroups.accessories.name`      | (Optional) A name to identify the Accessory             |          |
+- **`individual`** (default) — each bulb in the group becomes its own HomeKit Lightbulb accessory. Independent on/off, dimming, color, and color temperature per bulb. Adaptive Lighting is enabled automatically. Recommended for pot lights and anywhere you want native HomeKit control.
+- **`scene-controller`** (legacy) — the group is exposed as a single HomeKit Television where the 33 Wiz scenes (Ocean, Fireplace, Pulse, etc.) appear as TV "inputs." Kept for backwards compatibility and for RGB bulbs where Wiz's animated presets are the point.
 
-## Disclaimer
-I mostly made this plugin to solve a problem I faced with my own Homekit/Homebridge/Wiz deployment. As such, I only have access to the
-accessories that I have around my house. I cannot guarantee that this plugin will work with all Wiz accessories. The accessories I have all
-support white temperatures, and RBG. 
+## Config
 
-My main motivation was to create a way to activate the Wiz Scenes from Homekit. An added bonus is that using the same UDP request machanism,
-you can set any property of the lights that you want.
+```json
+{
+  "platform": "WizSceneController",
+  "accessoryGroups": [
+    {
+      "groupName": "Wall Pot Lights",
+      "mode": "individual",
+      "accessories": [
+        { "name": "LUNA Wall 1", "ipAddress": "10.0.4.10" },
+        { "name": "LUNA Wall 2", "ipAddress": "10.0.4.11" },
+        { "name": "LUNA Wall 3", "ipAddress": "10.0.4.12" },
+        { "name": "LUNA Wall 4", "ipAddress": "10.0.4.13" },
+        { "name": "LUNA Wall 5", "ipAddress": "10.0.4.14" }
+      ]
+    },
+    {
+      "groupName": "Media RGB Lights",
+      "mode": "scene-controller",
+      "accessories": [
+        { "name": "Luna Media 1", "ipAddress": "10.0.4.15" },
+        { "name": "Luna Media 2", "ipAddress": "10.0.4.16" },
+        { "name": "Luna Media 3", "ipAddress": "10.0.4.17" },
+        { "name": "Luna Media 4", "ipAddress": "10.0.4.18" }
+      ]
+    }
+  ],
+  "scenes": ["11"]
+}
+```
 
-Feel free to reach out with any issues, and I'll see what I can do to help!
+### Group fields
+
+| Field          | Required | Description                                                                              |
+| -------------- | :------: | ---------------------------------------------------------------------------------------- |
+| `groupName`    |    ✓     | Display name for the group; used as HomeKit identity for `scene-controller` mode.        |
+| `mode`         |          | `"individual"` (default) or `"scene-controller"`.                                        |
+| `accessories`  |    ✓     | Array of bulbs in the group.                                                             |
+
+### Per-bulb fields
+
+| Field         | Required | Description                                                                                  |
+| ------------- | :------: | -------------------------------------------------------------------------------------------- |
+| `name`        |          | HomeKit display name. Strongly recommended — also used to build the HomeKit accessory UUID. |
+| `ipAddress`   |          | Static or DHCP-reserved IP. Optional if `macAddress` is set.                                |
+| `macAddress`  |          | MAC address (with or without colons). Lets the plugin track bulbs across DHCP changes.      |
+
+### Top-level fields
+
+- `scenes` — array of scene IDs (as strings) exposed when a group is in `scene-controller` mode. Ignored for `individual` groups.
+
+## Migration from v1.x
+
+v1 exposed each accessory group as a single Television-style scene controller. v2 default behavior is per-bulb Lightbulb. Existing cached group accessories whose mode now defaults to `individual` will be removed from HomeKit on first launch and replaced with one Lightbulb per bulb. Any HomeKit automations or scenes referencing the old TV-style accessory will need to be re-pointed.
+
+If you want to preserve the v1 behavior for a group (e.g. RGB strips/bulbs where you actively use the animated Wiz scenes), set `"mode": "scene-controller"` on it.
+
+## Network behavior
+
+- The plugin opens a UDP socket and broadcasts discovery on port 38899, mapping MAC→IP for every Wiz bulb it can reach.
+- Periodic discovery runs every 5 minutes (down from 1 hour in v1) so DHCP lease rotations get caught quickly.
+- A `getPilot` timeout triggers an immediate rediscovery broadcast in addition to surfacing the error to HomeKit.
+
+## Development
+
+```sh
+npm install
+npm run build
+npm link              # symlinks into your Homebridge node_modules
+# restart Homebridge
+```
+
+## License
+
+MIT, retained from the original.

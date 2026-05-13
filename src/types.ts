@@ -1,6 +1,9 @@
+export type AccessoryGroupMode = 'individual' | 'scene-controller';
+
 export interface AccessoryGroup {
   groupName: string;
   accessories: Device[];
+  mode?: AccessoryGroupMode;
 }
 
 export interface Device {

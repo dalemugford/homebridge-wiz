@@ -1,17 +1,20 @@
 {
-  "displayName": "Wiz Scene Controller",
+  "displayName": "Wiz Lights",
   "name": "homebridge-wiz-scene-controller",
-  "version": "1.0.11",
+  "version": "2.0.0",
   "author": "jaspersnowolf",
-  "description": "Switches to send UDP requests to multiple targets (forked from homebridge-udp-multiswitch)",
+  "contributors": [
+    "dalemugford"
+  ],
+  "description": "Homebridge plugin for Wiz bulbs over UDP. Exposes each bulb as a native HomeKit Lightbulb with Hue, Saturation, Brightness, ColorTemperature, and Adaptive Lighting. Legacy scene-controller mode preserved for groups that opt in.",
   "license": "MIT",
-  "homepage": "https://github.com/JasperSnowolf/homebridge-udp-multiswitch-multitarget",
+  "homepage": "https://github.com/dalemugford/homebridge-wiz",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/JasperSnowolf/homebridge-udp-multiswitch-multitarget.git"
+    "url": "git+https://github.com/dalemugford/homebridge-wiz.git"
   },
   "bugs": {
-    "url": "https://github.com/JasperSnowolf/homebridge-udp-multiswitch-multitarget/issues"
+    "url": "https://github.com/dalemugford/homebridge-wiz/issues"
   },
   "main": "dist/index.js",
   "scripts": {
@@ -21,11 +24,15 @@
     "prepublishOnly": "npm run lint && npm run build"
   },
   "engines": {
-    "node": "^18.17.0 || ^20.9.0",
-    "homebridge": "^1.6.0"
+    "node": "^18.17.0 || ^20.9.0 || ^22.0.0 || ^24.0.0",
+    "homebridge": "^1.6.0 || ^2.0.0"
   },
   "keywords": [
-    "homebridge-plugin"
+    "homebridge-plugin",
+    "wiz",
+    "homekit",
+    "lightbulb",
+    "adaptive-lighting"
   ],
   "dependencies": {
     "getmac": "^5.17.0",

@@ -20,6 +20,7 @@ const BROADCAST_PORT = 38899;
 const LISTEN_PORT = 38901;
 const ADDRESS = strIp();
 const MAC = strMac();
+const DISCOVERY_INTERVAL_MS = 5 * 60 * 1000;
 
 const deviceIpMap: Map<string, string> = new Map<string, string>();
 
@@ -101,6 +102,9 @@ export function getLightSetting(
     if (callbacks) {
       callbacks.forEach(callback => callback(undefined, -70409));
     }
+    // Stale IP is a common cause of timeouts after DHCP changes. Re-broadcast
+    // discovery so any moved bulb re-registers with its new address.
+    sendDiscoveryBroadcast(platform);
   }, 2000);
 
   if (!requestQueue[deviceIpAddress]['getPilot']) {
@@ -267,5 +271,5 @@ export function registerPeriodicDiscovery(platform: WizSceneControllerPlatform) 
     log.info('Starting Periodic Discovery');
     sendDiscoveryBroadcast(platform);
     registerPeriodicDiscovery(platform);
-  }, 3600 * 1000);
+  }, DISCOVERY_INTERVAL_MS);
 }

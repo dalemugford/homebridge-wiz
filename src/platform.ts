@@ -3,6 +3,8 @@ import { Socket } from 'dgram';
 
 import { PLATFORM_NAME, PLUGIN_NAME } from './settings';
 import { WizSceneController } from './platformAccessory';
+import { WizLightbulb } from './wizLightbulb';
+import { AccessoryGroup, AccessoryGroupMode, Device } from './types';
 import { bindSocket, createSocket, registerPeriodicDiscovery, sendDiscoveryBroadcast } from './util/network';
 
 /**
@@ -14,7 +16,6 @@ export class WizSceneControllerPlatform implements DynamicPlatformPlugin {
   public readonly Service: typeof Service = this.api.hap.Service;
   public readonly Characteristic: typeof Characteristic = this.api.hap.Characteristic;
 
-  // this is used to track restored cached accessories
   public readonly accessories: PlatformAccessory[] = [];
   public readonly socket: Socket;
 
@@ -27,68 +28,94 @@ export class WizSceneControllerPlatform implements DynamicPlatformPlugin {
 
     this.socket = createSocket(this);
 
-    // When this event is fired it means Homebridge has restored all cached accessories from disk.
-    // Dynamic Platform plugins should only register new accessories after this event was fired,
-    // in order to ensure they weren't added to homebridge already. This event can also be used
-    // to start discovery of new accessories.
     this.api.on('didFinishLaunching', () => {
       log.debug('Executed didFinishLaunching callback');
       bindSocket(this, () => {
         sendDiscoveryBroadcast(this);
         registerPeriodicDiscovery(this);
-
-        // run the method to discover / register your devices as accessories
         this.discoverDevices();
       });
     });
   }
 
-  /**
-   * This function is invoked when homebridge restores cached accessories from disk at startup.
-   * It should be used to setup event handlers for characteristics and update respective values.
-   */
   configureAccessory(accessory: PlatformAccessory) {
     this.log.info('Loading accessory from cache:', accessory.displayName);
-
-    // add the restored accessory to the accessories cache so we can track if it has already been registered
     this.accessories.push(accessory);
   }
 
-  /**
-   * This is an example method showing how to register discovered accessories.
-   * Accessories must only be registered once, previously created accessories
-   * must not be registered again to prevent "duplicate UUID" errors.
-   */
   discoverDevices() {
+    const accessoryGroups: AccessoryGroup[] = this.config.accessoryGroups ?? [];
+    this.log.debug('Accessory groups configured: ' + accessoryGroups.map(g => g.groupName).join(', '));
 
-    // Get Accessory Groups
-    const accessoryGroups = this.config.accessoryGroups;
-    this.log.debug('Accessory groups configured: ' + accessoryGroups.map(accessory => accessory.groupName));
+    const claimedUuids = new Set<string>();
 
     for (const accessoryGroup of accessoryGroups) {
-      const uuid = this.api.hap.uuid.generate(accessoryGroup.groupName);
-      const existingAccessory = this.accessories.find(accessory => accessory.UUID === uuid);
+      const mode: AccessoryGroupMode = accessoryGroup.mode ?? 'individual';
+      this.log.info(`Group "${accessoryGroup.groupName}" mode: ${mode}`);
 
-      if (existingAccessory) {
-        this.log.info('Restoring existing accessory from cache:', existingAccessory.displayName);
-        new WizSceneController(this, existingAccessory);
+      if (mode === 'individual') {
+        for (const device of accessoryGroup.accessories ?? []) {
+          claimedUuids.add(this.registerLightbulb(accessoryGroup.groupName, device));
+        }
       } else {
-        this.log.info('Adding new accessory:', accessoryGroup.groupName);
-
-        // create a new accessory
-        const accessory = new this.api.platformAccessory(accessoryGroup.groupName, uuid);
-
-        // store a copy of the device object in the `accessory.context`
-        // the `context` property can be used to store any data about the accessory you may need
-        accessory.context.accessoryGroup = accessoryGroup;
-
-        // create the accessory handler for the newly create accessory
-        // this is imported from `platformAccessory.ts`
-        new WizSceneController(this, accessory);
-
-        // link the accessory to your platform
-        this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+        claimedUuids.add(this.registerSceneController(accessoryGroup));
       }
     }
+
+    this.removeStaleAccessories(claimedUuids);
+  }
+
+  private registerLightbulb(groupName: string, device: Device): string {
+    const displayName = device.name ?? device.ipAddress ?? device.macAddress ?? 'Wiz Bulb';
+    const uuidSeed = `${groupName}:${displayName}`;
+    const uuid = this.api.hap.uuid.generate(uuidSeed);
+
+    const existing = this.accessories.find(a => a.UUID === uuid);
+
+    if (existing) {
+      this.log.info('Restoring lightbulb accessory from cache:', existing.displayName);
+      existing.context.device = device;
+      existing.context.groupName = groupName;
+      new WizLightbulb(this, existing);
+    } else {
+      this.log.info('Adding new lightbulb accessory:', displayName);
+      const accessory = new this.api.platformAccessory(displayName, uuid);
+      accessory.context.device = device;
+      accessory.context.groupName = groupName;
+      new WizLightbulb(this, accessory);
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+    }
+
+    return uuid;
+  }
+
+  private registerSceneController(accessoryGroup: AccessoryGroup): string {
+    const uuid = this.api.hap.uuid.generate(accessoryGroup.groupName);
+    const existing = this.accessories.find(a => a.UUID === uuid);
+
+    if (existing) {
+      this.log.info('Restoring scene-controller accessory from cache:', existing.displayName);
+      existing.context.accessoryGroup = accessoryGroup;
+      new WizSceneController(this, existing);
+    } else {
+      this.log.info('Adding new scene-controller accessory:', accessoryGroup.groupName);
+      const accessory = new this.api.platformAccessory(accessoryGroup.groupName, uuid);
+      accessory.context.accessoryGroup = accessoryGroup;
+      new WizSceneController(this, accessory);
+      this.api.registerPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, [accessory]);
+    }
+
+    return uuid;
+  }
+
+  private removeStaleAccessories(claimedUuids: Set<string>): void {
+    const stale = this.accessories.filter(a => !claimedUuids.has(a.UUID));
+    if (stale.length === 0) {
+      return;
+    }
+    for (const a of stale) {
+      this.log.info(`Removing stale cached accessory: ${a.displayName}`);
+    }
+    this.api.unregisterPlatformAccessories(PLUGIN_NAME, PLATFORM_NAME, stale);
   }
 }

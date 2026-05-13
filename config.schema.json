@@ -58,6 +58,16 @@
               "type": "string",
               "required": true
             },
+            "mode": {
+              "title": "Mode",
+              "type": "string",
+              "default": "individual",
+              "description": "individual: each bulb in this group is exposed as its own HomeKit Lightbulb (with Hue, Saturation, ColorTemperature, Brightness, and Adaptive Lighting). scene-controller: legacy behavior — the group is exposed as a single HomeKit Television where scenes are selected as inputs.",
+              "oneOf": [
+                { "title": "Individual Lightbulbs (recommended)", "enum": ["individual"] },
+                { "title": "Scene Controller (legacy)", "enum": ["scene-controller"] }
+              ]
+            },
             "accessories": {
               "type": "array",
               "items": {
@@ -67,7 +77,14 @@
                   "ipAddress": {
                     "title": "IP Address",
                     "type": "string",
-                    "required": true
+                    "required": false,
+                    "description": "Static or DHCP-reserved IP. Optional if macAddress is set — the plugin will auto-discover the bulb's current IP via UDP broadcast."
+                  },
+                  "macAddress": {
+                    "title": "MAC Address",
+                    "type": "string",
+                    "required": false,
+                    "description": "Optional. Provide MAC (with or without colons) to identify the bulb across DHCP lease changes. Falls back to ipAddress if discovery hasn't yet mapped this MAC."
                   },
                   "name": {
                     "title": "Name",
