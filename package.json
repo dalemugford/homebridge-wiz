@@ -1,10 +1,10 @@
 {
   "displayName": "Wiz Lights",
-  "name": "homebridge-wiz-scene-controller",
-  "version": "3.0.0",
-  "author": "jaspersnowolf",
+  "name": "homebridge-wiz",
+  "version": "3.1.0",
+  "author": "dalemugford",
   "contributors": [
-    "dalemugford"
+    "jaspersnowolf"
   ],
   "description": "Homebridge plugin for Wiz bulbs over UDP. Exposes each bulb as a native HomeKit Lightbulb with Hue, Saturation, Brightness, ColorTemperature, and Adaptive Lighting.",
   "license": "MIT",

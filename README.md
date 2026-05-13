@@ -33,11 +33,11 @@ npm run build
 sudo npm link
 # point your Homebridge install at the linked module
 cd /var/lib/homebridge   # or your Homebridge storage path
-sudo -u homebridge npm link homebridge-wiz-scene-controller
+sudo -u homebridge npm link homebridge-wiz
 sudo systemctl restart homebridge
 ```
 
-The npm package name on disk stays `homebridge-wiz-scene-controller` for backwards compatibility with anyone migrating from the upstream plugin. The platform alias in your config is the friendlier `Wiz`.
+The npm package name on disk stays `homebridge-wiz` for backwards compatibility with anyone migrating from the upstream plugin. The platform alias in your config is the friendlier `Wiz`.
 
 ## Configuration
 
