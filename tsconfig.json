@@ -1,5 +1,9 @@
 {
   "compilerOptions": {
+    // Required to build against Homebridge 2.x, which pulls in @matter/*.
+    // Those .d.ts files need TypeScript 5.x to parse (4.9 throws TS1005) and
+    // skipLibCheck to not type-check. Both are needed; neither alone suffices.
+    "skipLibCheck": true,
     "target": "ES2018", // ~node10
     "module": "commonjs",
     "lib": [
